@@ -13,6 +13,7 @@
 #include<WS2tcpip.h>
 #include<iphlpapi.h>
 #include<FormatLastError.h>
+#include<Messages.h>
 using namespace  std;
 
 #pragma comment(lib, "WS2_32.lib")	//Вставляем статическую библиотеку, для заголовка <WS2TCPIP.h>
@@ -83,31 +84,41 @@ void main()
 	}
 	//freeaddrinfo(target);
 
-	//5) Отправка:
 	CHAR send_buffer[MTU] = "Hello Server";
-	iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
-	if (iResult == SOCKET_ERROR)
-	{
-		cout << "Send failed with error: " << WSAGetLastError() << endl;
-		cout << FormatLastError(dwError, szError) << endl;
-		freeaddrinfo(target);
-		closesocket(connect_socket);
-		WSACleanup();
-		return;
-	}
-
-	//6) Получение данных:
 	CHAR recv_buffer[MTU] = {};
 	do
 	{
-		iResult = recv(connect_socket, recv_buffer, MTU, 0);
-		dwError = WSAGetLastError();
-		if (iResult > 0)
-			cout << "Bytes received: " << iResult << "Message: " << recv_buffer << endl;
-		else if (iResult == 0)cout << "Connection closed" << endl;
-		else cout << "Receive failed with error "  << FormatLastError(dwError, szError) << endl;
+		//5) Отправка:
+		iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
+		if (iResult == SOCKET_ERROR)
+		{
+			cout << "Send failed with error: " << WSAGetLastError() << endl;
+			cout << FormatLastError(dwError, szError) << endl;
+			freeaddrinfo(target);
+			closesocket(connect_socket);
+			WSACleanup();
+			return;
+		}
 
-	} while (iResult > 0);
+		//6) Получение данных:
+		ZeroMemory(send_buffer, MTU);
+		//do
+		{
+			iResult = recv(connect_socket, recv_buffer, MTU, 0);
+			dwError = WSAGetLastError();
+			if (iResult > 0)
+				cout << "Bytes received: " << iResult << "Message: " << recv_buffer << endl;
+			else if (iResult == 0)cout << "Connection closed" << endl;
+			else cout << "Receive failed with error " << FormatLastError(dwError, szError) << endl;
+
+		} //while (iResult > 0);
+		ZeroMemory(send_buffer, MTU);
+		if (strcmp(recv_buffer, DECLINE_MESSAGE) != 0) cout << "Введите сообщение: ";
+		else cout << "Для выхода нажмите 'Enter'" << endl;
+		SetConsoleCP(1251);
+		cin.getline(send_buffer, MTU);
+		SetConsoleCP(866);
+	} while (strcmp(send_buffer, "exit") != 0 && strcmp(recv_buffer,DECLINE_MESSAGE) !=0);
 	iResult = shutdown(connect_socket, SD_BOTH);//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):
 
 	if (iResult == SOCKET_ERROR)
