@@ -20,6 +20,11 @@ using namespace  std;
 #pragma comment(lib, "FormatLastError")	
 
 #define MTU	1500	//Maximum Transfer Unit - Максимально-возможный размер Ethernet-кадра
+
+CHAR send_buffer[MTU] = "Hello Server";
+CHAR recv_buffer[MTU] = {};
+VOID Receive(SOCKET connect_socket);
+
 CHAR* FormatLastError(DWORD dwError, CHAR szError[]);
 void main()
 {
@@ -84,8 +89,18 @@ void main()
 	}
 	//freeaddrinfo(target);
 
-	CHAR send_buffer[MTU] = "Hello Server";
-	CHAR recv_buffer[MTU] = {};
+	//CHAR send_buffer[MTU] = "Hello Server";
+	//CHAR recv_buffer[MTU] = {};
+	DWORD dwThreadID = 0;
+	HANDLE hReceive = CreateThread
+	(
+		NULL,
+		NULL,
+		(LPFIBER_START_ROUTINE)Receive,
+		(LPVOID)connect_socket,
+		NULL,
+		&dwThreadID
+	);
 	do
 	{
 		//5) Отправка:
@@ -101,17 +116,8 @@ void main()
 		}
 
 		//6) Получение данных:
-		ZeroMemory(send_buffer, MTU);
-		//do
-		{
-			iResult = recv(connect_socket, recv_buffer, MTU, 0);
-			dwError = WSAGetLastError();
-			if (iResult > 0)
-				cout << "Bytes received: " << iResult << "Message: " << recv_buffer << endl;
-			else if (iResult == 0)cout << "Connection closed" << endl;
-			else cout << "Receive failed with error " << FormatLastError(dwError, szError) << endl;
-
-		} //while (iResult > 0);
+		
+		
 		ZeroMemory(send_buffer, MTU);
 		if (strcmp(recv_buffer, DECLINE_MESSAGE) != 0) cout << "Введите сообщение: ";
 		else cout << "Для выхода нажмите 'Enter'" << endl;
@@ -127,4 +133,20 @@ void main()
 	closesocket(connect_socket);
 	WSACleanup();
 }
+VOID Receive(SOCKET connect_socket)
+{
+	INT iResult = 0;
+	DWORD dwError = 0;
+	CHAR szError[256] = {};
+	ZeroMemory(recv_buffer, MTU);
+	//do
+	{
+		iResult = recv(connect_socket, recv_buffer, MTU, 0);
+		dwError = WSAGetLastError();
+		if (iResult > 0)
+			cout << "Bytes received: " << iResult << "Message: " << recv_buffer << endl;
+		else if (iResult == 0)cout << "Connection closed" << endl;
+		else cout << "Receive failed with error " << FormatLastError(dwError, szError) << endl;
 
+	} //while (iResult > 0);
+}
