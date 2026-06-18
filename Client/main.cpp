@@ -139,7 +139,7 @@ VOID Receive(SOCKET connect_socket)
 	DWORD dwError = 0;
 	CHAR szError[256] = {};
 	ZeroMemory(recv_buffer, MTU);
-	//do
+	do
 	{
 		iResult = recv(connect_socket, recv_buffer, MTU, 0);
 		dwError = WSAGetLastError();
@@ -148,5 +148,5 @@ VOID Receive(SOCKET connect_socket)
 		else if (iResult == 0)cout << "Connection closed" << endl;
 		else cout << "Receive failed with error " << FormatLastError(dwError, szError) << endl;
 
-	} //while (iResult > 0);
+	} while (iResult > 0);
 }
