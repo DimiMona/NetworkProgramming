@@ -147,26 +147,40 @@ public:
 	}
 
 };
-
+#define MAX_SPEED_LOW_LIMIT		60
+#define MAX_SPEED_HIGH_LIMIT		400
 class Car
 {
 	Engine engine;
 	Tank tank;
 
 	bool driver_inside; //как костыль - зачем машине знать о наличии водителя? 
-
+	const int MAX_SPEED;
+	int speed;
+	int acceleration;
 	struct CarThreads
 	{
 		std::mutex mutex;
 		std::thread panel_thread;
 		std::thread engine_idle_thread;
+		std::thread free_wheeling_thread;
 	}car_threads;
 
 
 
 public:
-	Car(double consumption, int capacity = 50) : engine(consumption), tank(capacity)
+	Car(double consumption, int capacity = 50, int max_speed=250) : 
+		engine(consumption), 
+		tank(capacity),
+		MAX_SPEED
+		(
+			max_speed < MAX_SPEED_LOW_LIMIT ? MAX_SPEED_LOW_LIMIT :
+			max_speed < MAX_SPEED_HIGH_LIMIT ? MAX_SPEED_HIGH_LIMIT :
+			max_speed
+		)
 	{
+		speed = 0;
+		acceleration = MAX_SPEED / 10;
 		driver_inside = false;
 		cout << "Your car is ready to go, press Enter to get in " << this << endl;
 	}
@@ -213,6 +227,15 @@ public:
 		if (car_threads.engine_idle_thread.joinable())
 			car_threads.engine_idle_thread.join();
 	}
+	void free_wheeling()
+	{
+		while (speed > 0)
+		{
+			speed--;
+			//if (speed < 0)speed = 0;
+			std::this_thread::sleep_for(1s);
+		}
+	}
 	void engine_idle()
 	{
 		while (engine.started() && tank.give_fuel(engine.get_consumption_per_second()))
@@ -220,6 +243,29 @@ public:
 			std::this_thread::sleep_for(1s);
 		}
 	}
+	void accelerate()
+	{
+		if (engine.started())
+		{
+			speed += acceleration;
+			if (speed > MAX_SPEED) speed = MAX_SPEED;
+			if (!car_threads.free_wheeling_thread.joinable())
+				car_threads.free_wheeling_thread = std::thread(&Car::free_wheeling, this);
+			std::this_thread::sleep_for(1s);
+		}
+	}
+	void slow_down()
+	{
+		if (speed > 0)
+		{
+			speed -= acceleration;
+			if (speed < 0)speed = 0;
+			if (speed == 0 && car_threads.free_wheeling_thread.joinable())
+				car_threads.free_wheeling_thread.join();
+			std::this_thread::sleep_for(1s);
+		}
+	}
+
 	void control()
 	{
 		char key;
@@ -253,10 +299,20 @@ public:
 				if (driver_inside && !engine.started())startup();
 				else if( driver_inside) shutdown();
 				break;
+			case 'W':
+			case 'w':
+				accelerate();
+				break;
+			case 'S':
+			case 's':
+				slow_down();
+				break;
 			case ESCAPE:
 				get_out();
 				shutdown();
 			}
+			if (speed < 0)speed = 0;
+			if (speed == 0 && car_threads.free_wheeling_thread.joinable()) car_threads.free_wheeling_thread.join();
 			if (tank.get_fuel_level() == 0 && engine.started())shutdown();
 
 
@@ -278,6 +334,8 @@ public:
 		
 		cout << "Fuel level:\t\tliters" << endl;
 		cout << "Engine is " << endl;
+		cout << "Speed: \t\tkm/h." << endl;
+
 		while (driver_inside)
 		{
 			car_threads.mutex.lock();
@@ -296,6 +354,10 @@ public:
 			cout << endl;
 			SetConsoleCursorPosition(hConsole, COORD{ 12,1 });
 			cout << (engine.started() ? "started" : "stopped");
+			SetConsoleCursorPosition(hConsole, COORD{ 8,2 });
+			cout.width(5);
+			//cout << std::left;
+			cout << speed;
 			//cout << "Engine is " << (engine.started() ? "started" : "stopped") << endl;
 
 			std::this_thread::sleep_for(100ms);
