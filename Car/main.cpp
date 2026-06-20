@@ -1,8 +1,10 @@
 #include <Windows.h>
 #include <iostream>
 #include<conio.h>
+#include <thread>
+#include<mutex>
 #include<chrono>
-#include<thread>
+
 
 using std::cin;
 using std::cout;
@@ -155,6 +157,7 @@ class Car
 
 	struct CarThreads
 	{
+		std::mutex mutex;
 		std::thread panel_thread;
 		std::thread engine_idle_thread;
 	}car_threads;
@@ -235,13 +238,15 @@ public:
 				break;
 			case'F':
 			case'f':
-				if (!driver_inside || engine.started())
+				car_threads.mutex.lock();
+				if (!driver_inside && !engine.started())
 				{
 					double amount;
 					cout << "Введите объем топлива: "; cin >> amount;
 					tank.Fill(amount);
 				}
 				else cout << "\nНужно заглушить двигатель и выйти из машины, у нас только самообслуживание";
+				car_threads.mutex.unlock();
 				break;
 			case 'I':
 			case 'i':
@@ -275,6 +280,7 @@ public:
 		cout << "Engine is " << endl;
 		while (driver_inside)
 		{
+			car_threads.mutex.lock();
 			SetConsoleCursorPosition(hConsole, COORD{ 12,0 }); 
 				cout << tank.get_fuel_level();
 			//system("CLS");
@@ -293,6 +299,7 @@ public:
 			//cout << "Engine is " << (engine.started() ? "started" : "stopped") << endl;
 
 			std::this_thread::sleep_for(100ms);
+			car_threads.mutex.unlock();
 		}
 		cursor_info.bVisible = TRUE;
 		SetConsoleCursorInfo(hConsole, &cursor_info);
